@@ -2,11 +2,13 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as CANNON from 'cannon-es';
+import { COLLISION_GROUPS } from './App';
 
 export class CharacterController {
-  constructor(scene, physicsWorld) {
+  constructor(scene, physicsWorld, playerMaterial = null) {
     this.scene = scene;
     this.physicsWorld = physicsWorld;
+    this.playerMaterial = playerMaterial;
     
     // Character properties
     this.model = null;
@@ -54,12 +56,12 @@ export class CharacterController {
     
     // Create a cylinder shape for character
     const radius = 0.5;
-    const height = 0.4;
+    const height = 1.5;  // Increased height for better collision
     
     const characterShape = new CANNON.Cylinder(
       radius,    // top radius
       radius,    // bottom radius
-      2 * radius + height,  // height
+      height,    // height
       8          // segments
     );
     
@@ -71,9 +73,21 @@ export class CharacterController {
       mass: 5,
       position: new CANNON.Vec3(0, 1, 0),
       shape: characterShape,
+      material: this.playerMaterial || undefined,
       linearDamping: 0.6,
-      angularDamping: 0.9
+      angularDamping: 0.9,
+      collisionResponse: false  // Add this to make it a "ghost" body
     });
+    
+    // Add userData for collision identification
+    this.physicsBody.userData = { 
+      type: 'player',
+      name: 'breadWarrior'
+    };
+    
+    // Set collision groups
+    this.physicsBody.collisionFilterGroup = COLLISION_GROUPS.PLAYER;
+    this.physicsBody.collisionFilterMask = COLLISION_GROUPS.OBSTACLE | COLLISION_GROUPS.GROUND | COLLISION_GROUPS.MARKER;
     
     // Apply the rotation to the body
     this.physicsBody.quaternion.copy(quat);

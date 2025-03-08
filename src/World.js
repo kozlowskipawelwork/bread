@@ -17,6 +17,10 @@ export class World {
     this.visibleSegments = 7;
     this.moveSpeed = 0.1;
 
+    // Collision tracking
+    this.lastCollisionTime = 0;
+    this.collisionCooldown = 500; // ms
+
     // Create instances of our modules
     this.ground = new Ground(this.worldGroup, this.segmentLength);
     this.markers = new Markers(this.worldGroup, this.physicsWorld, this.segmentLength);
@@ -39,7 +43,7 @@ export class World {
     }
   }
 
-  update(moveDirection) {
+  update(moveDirection, character) {
     // Move the world based on direction and current move speed
     let deltaZ = 0;
     if (moveDirection === 'left') {
@@ -48,6 +52,11 @@ export class World {
     } else if (moveDirection === 'right') {
       deltaZ = this.moveSpeed;
       this.worldGroup.position.z += deltaZ;
+    }
+
+    // Check for collisions with the character
+    if (character && character.physicsBody) {
+      this.checkCollisions(character);
     }
 
     // Update physics bodies if movement occurred
@@ -106,6 +115,73 @@ export class World {
     const cleanupMax = visibleRangeEnd + this.segmentLength * 2;
     this.markers.cleanupPhysicsBodies(cleanupMin, cleanupMax, this.worldGroup.position.z);
     this.obstacles.cleanupPhysicsBodies(cleanupMin, cleanupMax, this.worldGroup.position.z);
+  }
+
+  checkCollisions(character) {
+    if (!character || !character.physicsBody) return false;
+    
+    // Don't check too frequently
+    const now = Date.now();
+    if (now - this.lastCollisionTime < this.collisionCooldown) {
+      return false;
+    }
+    
+    const characterPosition = character.physicsBody.position;
+    const worldOffset = this.worldGroup.position.z;
+    
+    // Check all obstacles
+    for (const obstacleBody of this.obstacles.obstacles) {
+      if (!obstacleBody) continue;
+      
+      // Adjust for world movement in z-axis
+      const obstaclePos = obstacleBody.position;
+      const adjustedZ = obstaclePos.z - worldOffset;
+      
+      // Calculate distance between character and obstacle
+      const dx = characterPosition.x - obstaclePos.x;
+      const dy = characterPosition.y - obstaclePos.y;
+      const dz = characterPosition.z - adjustedZ;
+      const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      
+      // Collision radius - adjust as needed
+      const collisionThreshold = 1.0;
+      
+      if (distance < collisionThreshold) {
+        console.log('COLLISION DETECTED!');
+        console.log('Character:', characterPosition);
+        console.log('Obstacle (adjusted):', { x: obstaclePos.x, y: obstaclePos.y, z: adjustedZ });
+        console.log('Distance:', distance);
+        
+        // Visual feedback
+        if (obstacleBody.userData && obstacleBody.userData.mesh) {
+          const mesh = obstacleBody.userData.mesh;
+          if (mesh.material) {
+            // Store original color if not already stored
+            if (!mesh.userData.originalColor) {
+              mesh.userData.originalColor = mesh.material.color.clone();
+            }
+            
+            // Flash red
+            mesh.material.color.set(0xff0000);
+            
+            // Reset after timeout
+            setTimeout(() => {
+              if (mesh.userData.originalColor) {
+                mesh.material.color.copy(mesh.userData.originalColor);
+              }
+            }, 300);
+          }
+        }
+        
+        // Trigger any game logic for collision here
+        // e.g. reduce health, game over, etc.
+        
+        this.lastCollisionTime = now;
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   // Method to change the move speed
