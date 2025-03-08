@@ -4,18 +4,20 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { useEffect } from 'react';
 import { createResizeHandler, setupResizeListener } from './utils/resizeHandler';
 import { World } from './World';
-import * as RAPIER from '@dimforge/rapier3d-compat';
+import * as CANNON from 'cannon-es';
+import CannonDebugger from 'cannon-es-debugger';
 
 const App = () => {
   useEffect(() => {
-    // Async initialization function to load RAPIER
     const init = async () => {
-      // Init Rapier physics
-      await RAPIER.init();
+      // Create Cannon physics world
+      const physicsWorld = new CANNON.World({
+        gravity: new CANNON.Vec3(0, -9.81, 0)
+      });
       
-      // Create physics world
-      const gravity = { x: 0.0, y: -9.81, z: 0.0 };
-      const world = new RAPIER.World(gravity);
+      // Set up physics world
+      physicsWorld.defaultContactMaterial.friction = 0.1;
+      physicsWorld.defaultContactMaterial.restitution = 0.3;
       
       // Create Scene
       const scene = new THREE.Scene();
@@ -45,12 +47,18 @@ const App = () => {
       const cleanupResizeListener = setupResizeListener(handleResize);
 
       // Create ground collider
-      const groundColliderDesc = RAPIER.ColliderDesc.cuboid(50.0, 0.1, 50.0);
-      groundColliderDesc.translation = { x: 0.0, y: -1.0, z: 0.0 };
-      world.createCollider(groundColliderDesc);
+      const groundBody = new CANNON.Body({
+        type: CANNON.Body.STATIC,
+        shape: new CANNON.Box(new CANNON.Vec3(50.0, 0.1, 50.0)),
+        position: new CANNON.Vec3(0, -1, 0)
+      });
+      physicsWorld.addBody(groundBody);
 
       // Create our game world
       const gameWorld = new World(scene);
+
+      // Set up Cannon.js debugger
+      const cannonDebugger = CannonDebugger(scene, physicsWorld);
 
       // Variables for the bread warrior
       let breadWarrior;
@@ -70,17 +78,38 @@ const App = () => {
         breadWarrior.position.set(0, 0, 0);
         scene.add(breadWarrior);
 
-        // Create rigid body for character
-        const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(0, 1, 0)
-          .setLinearDamping(1.0)
-          .setAngularDamping(1.0);
+        // Create rigid body for character with Cannon.js
+        const radius = 0.5; // Capsule radius
+        const height = 0.4; // Capsule height (between the two spheres)
         
-        characterBody = world.createRigidBody(bodyDesc);
+        // Create a capsule shape
+        const characterShape = new CANNON.Cylinder(
+          radius, // top radius
+          radius, // bottom radius
+          2 * radius + height, // height
+          8 // segments
+        );
         
-        // Create character collider
-        const colliderDesc = RAPIER.ColliderDesc.capsule(0.5, 0.2);
-        world.createCollider(colliderDesc, characterBody);
+        // Rotate the capsule so it stands upright (y-axis)
+        const quat = new CANNON.Quaternion();
+        quat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+        
+        characterBody = new CANNON.Body({
+          mass: 5,
+          position: new CANNON.Vec3(0, 1, 0),
+          shape: characterShape,
+          linearDamping: 0.6,
+          angularDamping: 0.9
+        });
+        
+        // Apply the rotation to the body
+        characterBody.quaternion.copy(quat);
+        
+        // Lock rotation to prevent tipping over
+        characterBody.fixedRotation = true;
+        characterBody.updateMassProperties();
+        
+        physicsWorld.addBody(characterBody);
 
         // Set up animation mixer
         mixer = new THREE.AnimationMixer(breadWarrior);
@@ -227,7 +256,13 @@ const App = () => {
       const animate = () => {
         requestAnimationFrame(animate);
 
-        const delta = clock.getDelta();
+        const delta = Math.min(clock.getDelta(), 0.1); // Cap delta to avoid huge jumps
+
+        // Step the physics world
+        physicsWorld.step(1/60, delta, 3);
+        
+        // Update the cannon debugger
+        cannonDebugger.update();
 
         // More responsive movement detection
         const isMovingLeft = keys.left;
@@ -266,12 +301,9 @@ const App = () => {
           gameWorld.moveSpeed = moveSpeed;
         }
 
-        // Update physics
-        world.step();
-
         // Sync character with physics
         if (characterBody && breadWarrior) {
-          const pos = characterBody.translation();
+          const pos = characterBody.position;
           breadWarrior.position.set(pos.x, pos.y, pos.z);
         }
 
@@ -300,9 +332,6 @@ const App = () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
         document.body.removeChild(renderer.domElement);
-
-        // Cleanup physics
-        world.free();
 
         // Properly dispose animations
         if (mixer) {

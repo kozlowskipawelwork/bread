@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.15.0",
+    "cannon-es": "^0.20.0",
+    "cannon-es-debugger": "^1.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.174.0"

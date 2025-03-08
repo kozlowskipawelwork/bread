@@ -1,9 +1,11 @@
 // World.js
 import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
 
 export class World {
-  constructor(scene) {
+  constructor(scene, physicsWorld) {
     this.scene = scene;
+    this.physicsWorld = physicsWorld;
     this.worldGroup = new THREE.Group();
     this.scene.add(this.worldGroup);
     
@@ -14,6 +16,8 @@ export class World {
     
     // Create segments array and initialize world
     this.segments = [];
+    this.obstacles = []; // Keep track of obstacle bodies
+    this.markers = []; // Keep track of marker bodies
     this.initializeWorld();
   }
   
@@ -26,6 +30,7 @@ export class World {
   
   // Create a segment at the specified z position
   createSegment(zPosition) {
+    // Create visual segment
     const planeGeometry = new THREE.PlaneGeometry(10, this.segmentLength);
     const planeMaterial = new THREE.MeshStandardMaterial({
       color: Math.abs(Math.floor(zPosition / this.segmentLength)) % 2 === 0 ? 0x444444 : 0x555555,
@@ -52,6 +57,18 @@ export class World {
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
       marker.position.set(0, -0.9, zPosition - j * (this.segmentLength / 5));
       
+      // Add physical marker (with physics body)
+      if (this.physicsWorld) {
+        const markerBody = new CANNON.Body({
+          type: CANNON.Body.STATIC,
+          shape: new CANNON.Box(new CANNON.Vec3(0.25, 0.1, 0.25)),
+          position: new CANNON.Vec3(0, -0.9, zPosition - j * (this.segmentLength / 5))
+        });
+        this.physicsWorld.addBody(markerBody);
+        marker.userData.physicsBody = markerBody;
+        this.markers.push(markerBody);
+      }
+      
       this.worldGroup.add(marker);
       markers.push(marker);
     }
@@ -65,6 +82,18 @@ export class World {
       const randomX = (Math.random() * 6) - 3;
       obstacle.position.set(randomX, -0.6, zPosition - this.segmentLength * 0.5);
       
+      // Add physical obstacle
+      if (this.physicsWorld) {
+        const obstacleBody = new CANNON.Body({
+          type: CANNON.Body.STATIC,
+          shape: new CANNON.Box(new CANNON.Vec3(0.4, 0.4, 0.4)),
+          position: new CANNON.Vec3(randomX, -0.6, zPosition - this.segmentLength * 0.5)
+        });
+        this.physicsWorld.addBody(obstacleBody);
+        obstacle.userData.physicsBody = obstacleBody;
+        this.obstacles.push(obstacleBody);
+      }
+      
       this.worldGroup.add(obstacle);
     }
     
@@ -75,8 +104,18 @@ export class World {
     // Move the world based on direction and current move speed
     if (moveDirection === 'left') {
       this.worldGroup.position.z -= this.moveSpeed;
+      
+      // Update physics bodies positions
+      if (this.physicsWorld) {
+        this.updatePhysicsBodies(-this.moveSpeed);
+      }
     } else if (moveDirection === 'right') {
       this.worldGroup.position.z += this.moveSpeed;
+      
+      // Update physics bodies positions
+      if (this.physicsWorld) {
+        this.updatePhysicsBodies(this.moveSpeed);
+      }
     }
     
     // Check visible range (camera is at 0,0,0 in world space)
@@ -125,6 +164,29 @@ export class World {
     });
   }
   
+  // Update all physics bodies positions when the world moves
+  updatePhysicsBodies(deltaZ) {
+    // Update obstacles
+    this.obstacles.forEach(body => {
+      const newPosition = new CANNON.Vec3(
+        body.position.x,
+        body.position.y,
+        body.position.z + deltaZ
+      );
+      body.position.copy(newPosition);
+    });
+    
+    // Update markers
+    this.markers.forEach(body => {
+      const newPosition = new CANNON.Vec3(
+        body.position.x,
+        body.position.y,
+        body.position.z + deltaZ
+      );
+      body.position.copy(newPosition);
+    });
+  }
+  
   // Method to change the move speed
   setMoveSpeed(speed) {
     this.moveSpeed = speed;
@@ -136,6 +198,19 @@ export class World {
       this.worldGroup.remove(segment);
     });
     this.segments = [];
+    
+    // Clear physics bodies
+    if (this.physicsWorld) {
+      this.obstacles.forEach(body => {
+        this.physicsWorld.removeBody(body);
+      });
+      this.markers.forEach(body => {
+        this.physicsWorld.removeBody(body);
+      });
+    }
+    
+    this.obstacles = [];
+    this.markers = [];
     
     // Reset position
     this.worldGroup.position.set(0, 0, 0);
