@@ -10,7 +10,7 @@ export class World {
     // Configuration
     this.segmentLength = 20;
     this.visibleSegments = 7; // Increased for better visibility in both directions
-    this.moveSpeed = 0.1;
+    this.moveSpeed = 0.1; // Default walking speed
     
     // Create segments array and initialize world
     this.segments = [];
@@ -72,7 +72,7 @@ export class World {
   }
   
   update(moveDirection) {
-    // Move the world based on direction
+    // Move the world based on direction and current move speed
     if (moveDirection === 'left') {
       this.worldGroup.position.z -= this.moveSpeed;
     } else if (moveDirection === 'right') {
@@ -80,8 +80,10 @@ export class World {
     }
     
     // Check visible range (camera is at 0,0,0 in world space)
-    const visibleRangeStart = -this.worldGroup.position.z - this.segmentLength * 3;
-    const visibleRangeEnd = -this.worldGroup.position.z + this.segmentLength * 3;
+    // Adjust the visible range based on speed to ensure smooth loading at higher speeds
+    const speedFactor = this.moveSpeed / 0.1; // Calculate how much faster we're moving
+    const visibleRangeStart = -this.worldGroup.position.z - this.segmentLength * 3 * speedFactor;
+    const visibleRangeEnd = -this.worldGroup.position.z + this.segmentLength * 3 * speedFactor;
     
     // Find the min and max Z positions of current segments
     let minZ = Infinity;
@@ -123,6 +125,11 @@ export class World {
     });
   }
   
+  // Method to change the move speed
+  setMoveSpeed(speed) {
+    this.moveSpeed = speed;
+  }
+  
   reset() {
     // Clear all segments
     this.segments.forEach(segment => {
@@ -132,6 +139,9 @@ export class World {
     
     // Reset position
     this.worldGroup.position.set(0, 0, 0);
+    
+    // Reset to default walking speed
+    this.moveSpeed = 0.1;
     
     // Rebuild world
     this.initializeWorld();
