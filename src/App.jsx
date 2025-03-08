@@ -58,7 +58,7 @@ const App = () => {
       const gameWorld = new World(scene, physicsWorld);
 
       // Set up Cannon.js debugger
-      const cannonDebugger = CannonDebugger(scene, physicsWorld);
+      //const cannonDebugger = CannonDebugger(scene, physicsWorld);
 
       // Create character controller
       const character = new CharacterController(scene, physicsWorld);
@@ -83,7 +83,7 @@ const App = () => {
         physicsWorld.step(1/60, delta, 3);
         
         // Update the cannon debugger
-        cannonDebugger.update();
+        //cannonDebugger.update();
 
         // Update character
         character.update(delta);
