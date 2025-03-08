@@ -9,8 +9,8 @@ export class World {
     
     // Configuration
     this.segmentLength = 20;
-    this.visibleSegments = 7; // Increased for better visibility in both directions
-    this.moveSpeed = 0.1; // Default walking speed
+    this.visibleSegments = 7;
+    this.moveSpeed = 0.1;
     
     // Create segments array and initialize world
     this.segments = [];
