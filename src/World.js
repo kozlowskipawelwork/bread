@@ -46,6 +46,9 @@ export class World {
     this.worldGroup.add(segment);
     this.segments.push(segment);
     
+    // Calculate the world offset to sync physics bodies with the world group
+    const worldOffset = this.worldGroup.position.z;
+    
     // Add markers
     const markers = [];
     for (let j = 0; j < 5; j++) {
@@ -54,15 +57,17 @@ export class World {
         color: 0x888888 
       });
       
+      const markerZ = zPosition - j * (this.segmentLength / 5);
       const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-      marker.position.set(0, -0.9, zPosition - j * (this.segmentLength / 5));
+      marker.position.set(0, -0.9, markerZ);
       
       // Add physical marker (with physics body)
       if (this.physicsWorld) {
+        // Apply world offset to physics body position
         const markerBody = new CANNON.Body({
           type: CANNON.Body.STATIC,
           shape: new CANNON.Box(new CANNON.Vec3(0.25, 0.1, 0.25)),
-          position: new CANNON.Vec3(0, -0.9, zPosition - j * (this.segmentLength / 5))
+          position: new CANNON.Vec3(0, -0.9, markerZ + worldOffset)
         });
         this.physicsWorld.addBody(markerBody);
         marker.userData.physicsBody = markerBody;
@@ -77,19 +82,24 @@ export class World {
     if (Math.abs(zPosition) > this.segmentLength && Math.random() > 0.5) {
       const obstacleGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
       const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xdd3333 });
-      const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
       
       const randomX = (Math.random() * 6) - 3;
-      obstacle.position.set(randomX, -0.6, zPosition - this.segmentLength * 0.5);
+      const obstacleZ = zPosition - this.segmentLength * 0.5;
+      const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+      obstacle.position.set(randomX, -0.6, obstacleZ);
       
       // Add physical obstacle
       if (this.physicsWorld) {
+        // Apply world offset to physics body position
         const obstacleBody = new CANNON.Body({
           type: CANNON.Body.STATIC,
           shape: new CANNON.Box(new CANNON.Vec3(0.4, 0.4, 0.4)),
-          position: new CANNON.Vec3(randomX, -0.6, zPosition - this.segmentLength * 0.5)
+          position: new CANNON.Vec3(randomX, -0.6, obstacleZ + worldOffset)
         });
         this.physicsWorld.addBody(obstacleBody);
+        
+        // Store reference to mesh in the physics body for sync updates
+        obstacleBody.userData = { mesh: obstacle };
         obstacle.userData.physicsBody = obstacleBody;
         this.obstacles.push(obstacleBody);
       }
@@ -102,20 +112,19 @@ export class World {
   
   update(moveDirection) {
     // Move the world based on direction and current move speed
+    let deltaZ = 0;
+    
     if (moveDirection === 'left') {
-      this.worldGroup.position.z -= this.moveSpeed;
-      
-      // Update physics bodies positions
-      if (this.physicsWorld) {
-        this.updatePhysicsBodies(-this.moveSpeed);
-      }
+      deltaZ = -this.moveSpeed;
+      this.worldGroup.position.z += deltaZ;
     } else if (moveDirection === 'right') {
-      this.worldGroup.position.z += this.moveSpeed;
-      
-      // Update physics bodies positions
-      if (this.physicsWorld) {
-        this.updatePhysicsBodies(this.moveSpeed);
-      }
+      deltaZ = this.moveSpeed;
+      this.worldGroup.position.z += deltaZ;
+    }
+    
+    // Update physics bodies positions if movement occurred
+    if (deltaZ !== 0 && this.physicsWorld) {
+      this.updatePhysicsBodies(deltaZ);
     }
     
     // Check visible range (camera is at 0,0,0 in world space)
@@ -154,12 +163,65 @@ export class World {
       }
     });
     
-    // Remove the out-of-range segments
+    // Remove the out-of-range segments and their physics bodies
     cleanup.forEach(segment => {
+      // Clean up associated physics bodies if any
+      // (We would need to store references, which is beyond this fix)
+      
       this.worldGroup.remove(segment);
       const index = this.segments.indexOf(segment);
       if (index !== -1) {
         this.segments.splice(index, 1);
+      }
+    });
+    
+    // Also clean up obstacles and markers that are out of range
+    this.cleanupPhysicsBodies(visibleRangeStart - this.segmentLength * 2, 
+                             visibleRangeEnd + this.segmentLength * 2);
+  }
+  
+  // Clean up physics bodies that are out of range
+  cleanupPhysicsBodies(minZ, maxZ) {
+    if (!this.physicsWorld) return;
+    
+    // Get current world offset
+    const worldOffset = this.worldGroup.position.z;
+    
+    // Clean up obstacles
+    const obstacleCleanup = [];
+    this.obstacles.forEach(body => {
+      // Apply world offset to get the local position
+      const localZ = body.position.z - worldOffset;
+      if (localZ < minZ || localZ > maxZ) {
+        obstacleCleanup.push(body);
+      }
+    });
+    
+    // Remove obstacles
+    obstacleCleanup.forEach(body => {
+      this.physicsWorld.removeBody(body);
+      const index = this.obstacles.indexOf(body);
+      if (index !== -1) {
+        this.obstacles.splice(index, 1);
+      }
+    });
+    
+    // Clean up markers
+    const markerCleanup = [];
+    this.markers.forEach(body => {
+      // Apply world offset to get the local position
+      const localZ = body.position.z - worldOffset;
+      if (localZ < minZ || localZ > maxZ) {
+        markerCleanup.push(body);
+      }
+    });
+    
+    // Remove markers
+    markerCleanup.forEach(body => {
+      this.physicsWorld.removeBody(body);
+      const index = this.markers.indexOf(body);
+      if (index !== -1) {
+        this.markers.splice(index, 1);
       }
     });
   }
