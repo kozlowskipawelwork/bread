@@ -18,7 +18,7 @@ const App = () => {
       0.1,
       1000
     );
-    camera.position.set(20, 5, 6);
+    camera.position.set(20, 5, 3);
     camera.lookAt(0, 0, 0);
 
     // Create Renderer
@@ -41,7 +41,7 @@ const App = () => {
     let idleAction;
     let runAction; // New variable for run animation
     let currentAction;
-    
+
     // Load the bread warrior model
     const loader = new GLTFLoader();
     loader.load('/breadwarrior.glb', (gltf) => {
@@ -49,18 +49,18 @@ const App = () => {
       breadWarrior.scale.set(1000, 1000, 1000); // Keeping your scale
       breadWarrior.position.set(0, 0, 0); // Set initial position
       scene.add(breadWarrior);
-      
+
       // Set up animation mixer
       mixer = new THREE.AnimationMixer(breadWarrior);
-      
+
       // Get animations
       const animations = gltf.animations;
-      
+
       // Find the walk, idle, and run animations
       const idleAnim = animations.find(anim => anim.name === 'breadidle');
       const walkAnim = animations.find(anim => anim.name === 'breadwalk');
       const runAnim = animations.find(anim => anim.name === 'breadrun'); // Get the run animation
-      
+
       if (idleAnim) {
         idleAction = mixer.clipAction(idleAnim);
         idleAction.setEffectiveTimeScale(1.0);
@@ -68,7 +68,7 @@ const App = () => {
       } else {
         console.error("Idle animation 'breadidle' not found!");
       }
-      
+
       if (walkAnim) {
         walkAction = mixer.clipAction(walkAnim);
         walkAction.setEffectiveTimeScale(1.0);
@@ -76,7 +76,7 @@ const App = () => {
       } else {
         console.error("Walk animation 'breadwalk' not found!");
       }
-      
+
       if (runAnim) {
         runAction = mixer.clipAction(runAnim);
         runAction.setEffectiveTimeScale(1.2); // Make the run animation slightly faster
@@ -84,7 +84,7 @@ const App = () => {
       } else {
         console.error("Run animation 'breadrun' not found!");
       }
-      
+
       // Start with idle animation
       if (idleAction) {
         idleAction.play();
@@ -111,11 +111,11 @@ const App = () => {
     // Improved transition between animations
     const setAction = (newAction) => {
       if (currentAction === newAction) return;
-      
+
       if (currentAction) {
         currentAction.fadeOut(0.1);
       }
-      
+
       newAction.reset().fadeIn(0.1).play();
       currentAction = newAction;
     };
@@ -123,7 +123,7 @@ const App = () => {
     // Function to update character orientation based on the active direction
     const updateCharacterOrientation = () => {
       if (!breadWarrior) return;
-      
+
       // If both keys are pressed, use the last direction key
       if (keys.left && keys.right) {
         if (keys.lastDirectionKey === 'left') {
@@ -194,23 +194,23 @@ const App = () => {
 
     // Animation Loop
     const clock = new THREE.Clock();
-    
+
     const animate = () => {
       requestAnimationFrame(animate);
-      
+
       const delta = clock.getDelta();
-      
+
       // More responsive movement detection
       const isMovingLeft = keys.left;
       const isMovingRight = keys.right;
       const isMoving = isMovingLeft || isMovingRight;
       const isRunning = isMoving && keys.shift; // Check if player is running
-      
+
       // Update animations and character orientation
       if (breadWarrior && mixer) {
         // Update the animation mixer
         mixer.update(delta);
-        
+
         // Switch animations based on movement and running state
         if (isMoving) {
           if (isRunning && runAction) {
@@ -230,18 +230,18 @@ const App = () => {
             setAction(idleAction);
           }
         }
-        
+
         // Character orientation is handled by the updateCharacterOrientation function
       }
-      
+
       // Set the appropriate speed based on running state
       const moveSpeed = isRunning ? 0.3 : 0.1;
-      
+
       // Update world.moveSpeed if available
       if (world && world.moveSpeed !== undefined) {
         world.moveSpeed = moveSpeed;
       }
-      
+
       // Update world based on key presses and priority
       if (keys.left && keys.right) {
         // If both keys are pressed, use the last direction key pressed
@@ -268,7 +268,7 @@ const App = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       document.body.removeChild(renderer.domElement);
-      
+
       // Properly dispose animations
       if (mixer) {
         mixer.stopAllAction();
