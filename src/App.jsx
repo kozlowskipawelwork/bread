@@ -1,5 +1,6 @@
 'use client'
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { useEffect } from 'react';
 import { createResizeHandler, setupResizeListener } from './utils/resizeHandler';
 import { World } from './World';
@@ -17,8 +18,7 @@ const App = () => {
       0.1,
       1000
     );
-    
-    camera.position.set(9, 2, 5);
+    camera.position.set(20, 5, 6);
     camera.lookAt(0, 0, 0);
 
     // Create Renderer
@@ -34,38 +34,98 @@ const App = () => {
     // Create our world
     const world = new World(scene);
 
-    // Create our hero (the cube)
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-    const hero = new THREE.Mesh(geometry, material);
-    scene.add(hero);
+    // Variables for the bread warrior
+    let breadWarrior;
+    let mixer;
+    let walkAction;
+    let idleAction;
+    let currentAction;
+    
+    // Load the bread warrior model
+    const loader = new GLTFLoader();
+    loader.load('/breadwarrior.glb', (gltf) => {
+      breadWarrior = gltf.scene;
+      breadWarrior.scale.set(1000, 1000, 1000); // Keeping your scale
+      breadWarrior.position.set(0, 0, 0); // Set initial position
+      scene.add(breadWarrior);
+      
+      // Set up animation mixer
+      mixer = new THREE.AnimationMixer(breadWarrior);
+      
+      // Get animations
+      const animations = gltf.animations;
+      
+      // Find the walk and idle animations
+      const idleAnim = animations.find(anim => anim.name === 'breadidle');
+      const walkAnim = animations.find(anim => anim.name === 'breadwalk');
+      
+      if (idleAnim) {
+        idleAction = mixer.clipAction(idleAnim);
+        idleAction.setEffectiveTimeScale(1.0);
+        idleAction.setEffectiveWeight(1.0);
+      } else {
+        console.error("Idle animation 'breadidle' not found!");
+      }
+      
+      if (walkAnim) {
+        walkAction = mixer.clipAction(walkAnim);
+        walkAction.setEffectiveTimeScale(1.0);
+        walkAction.setEffectiveWeight(1.0);
+      } else {
+        console.error("Walk animation 'breadwalk' not found!");
+      }
+      
+      // Start with idle animation
+      if (idleAction) {
+        idleAction.play();
+        currentAction = idleAction;
+      }
+    });
 
     // Add lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
-    
+
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(5, 5, 5);
     scene.add(directionalLight);
 
-    // Movement controls
+    // Movement controls with more immediate response
     const keys = {
       left: false,
       right: false
     };
 
-    // Key event listeners
+    // Improved transition between animations
+    const setAction = (newAction) => {
+      if (currentAction === newAction) return;
+      
+      if (currentAction) {
+        currentAction.fadeOut(0.1);
+      }
+      
+      newAction.reset().fadeIn(0.1).play();
+      currentAction = newAction;
+    };
+
+    // Key event listeners with immediate direction handling
     const handleKeyDown = (event) => {
       switch (event.key) {
         case 'ArrowLeft':
         case 'a':
         case 'A':
           keys.left = true;
+          if (breadWarrior) {
+            breadWarrior.rotation.y = 0; // Immediately face right when moving left
+          }
           break;
         case 'ArrowRight':
         case 'd':
         case 'D':
           keys.right = true;
+          if (breadWarrior) {
+            breadWarrior.rotation.y = Math.PI; // Immediately face left when moving right
+          }
           break;
       }
     };
@@ -89,21 +149,57 @@ const App = () => {
     window.addEventListener('keyup', handleKeyUp);
 
     // Animation Loop
+    const clock = new THREE.Clock();
+    
     const animate = () => {
       requestAnimationFrame(animate);
+      
+      const delta = clock.getDelta();
+      
+      // More responsive movement detection
+      const isMovingLeft = keys.left;
+      const isMovingRight = keys.right;
+      const isMoving = isMovingLeft || isMovingRight;
+      
+      // Update animations and character orientation
+      if (breadWarrior && mixer) {
+        // Update the animation mixer
+        mixer.update(delta);
+        
+        // Switch animations immediately based on movement
+        if (isMoving) {
+          if (walkAction && currentAction !== walkAction) {
+            setAction(walkAction);
+          }
+        } else {
+          if (idleAction && currentAction !== idleAction) {
+            setAction(idleAction);
+          }
+        }
+        
+        // Update orientation - handle priority if both keys are pressed
+        if (isMovingLeft && isMovingRight) {
+          // If both keys are pressed, use the last pressed key
+          // This is handled by the keydown event for immediate response
+        } else if (isMovingLeft) {
+          breadWarrior.rotation.y = 0; // Face right when moving left
+        } else if (isMovingRight) {
+          breadWarrior.rotation.y = Math.PI; // Face left when moving right
+        }
+      }
       
       // Update world based on key presses
       if (keys.left) {
         world.update('left');
       }
-      
       if (keys.right) {
         world.update('right');
       }
-      
+
       // Render Scene
       renderer.render(scene, camera);
     };
+
     animate();
 
     // Cleanup
@@ -112,6 +208,11 @@ const App = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       document.body.removeChild(renderer.domElement);
+      
+      // Properly dispose animations
+      if (mixer) {
+        mixer.stopAllAction();
+      }
     };
   }, []);
 
