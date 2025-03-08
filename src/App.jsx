@@ -1,25 +1,23 @@
 'use client'
 import * as THREE from 'three';
-// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'; // Commented out as requested
 import { useEffect } from 'react';
 
 const App = () => {
   useEffect(() => {
     // Create Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111111); // Dark background to see objects better
+    scene.background = new THREE.Color(0x111111);
 
-    // Create Camera - EXACTLY as your code
+    // Create Camera
     const camera = new THREE.PerspectiveCamera(
-      60, // FOV - slightly wider for better visibility
-      window.innerWidth / window.innerHeight, // Aspect Ratio
-      0.1, // Near Clipping Plane
-      1000 // Far Clipping Plane
+      60,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
     );
     
-    // Position camera EXACTLY as your code
-    camera.position.set(9, 2, 5); // Positioned higher and to the side
-    camera.lookAt(0, 0, 0); // Looking at the center of the scene
+    camera.position.set(9, 2, 5);
+    camera.lookAt(0, 0, 0);
 
     // Create Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -27,38 +25,111 @@ const App = () => {
     renderer.setPixelRatio(window.devicePixelRatio);
     document.body.appendChild(renderer.domElement);
 
-    // Add Plane - keeping the EXACT same dimensions as your code
-    const planeGeometry = new THREE.PlaneGeometry(100, 10); // Made wider for scrolling
-    const planeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x444444,
-      side: THREE.DoubleSide
-    });
-    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    plane.rotation.x = Math.PI / 2; // Rotate to be horizontal - EXACTLY as your code
-    plane.rotation.z = Math.PI / 2; // Rotate to be horizontal - EXACTLY as your code
-    plane.position.y = -1; // Position below the cube - EXACTLY as your code
-    scene.add(plane);
-
-    // Add markers to the plane to visualize movement
-    const markerGeometry = new THREE.BoxGeometry(0.5, 0.2, 0.5);
-    const markerMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
+    // INFINITE SCROLLING SETUP
+    // Create multiple ground segments that will be recycled
+    const segmentLength = 20; // Length of each ground segment
+    const visibleSegments = 5; // Number of segments visible at any time
+    const segmentPool = []; // Pool of ground segments to recycle
     
-    const markers = [];
-    for (let i = -50; i <= 50; i += 5) {
-      const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-      marker.position.set(0, -0.9, i);
-
-      scene.add(marker);
-      markers.push(marker);
+    // Create ground segments
+    for (let i = 0; i < visibleSegments; i++) {
+      // Create a ground segment
+      const planeGeometry = new THREE.PlaneGeometry(10, segmentLength);
+      const planeMaterial = new THREE.MeshStandardMaterial({
+        color: i % 2 === 0 ? 0x444444 : 0x555555, // Alternate colors for visibility
+        side: THREE.DoubleSide
+      });
+      
+      const segment = new THREE.Mesh(planeGeometry, planeMaterial);
+      segment.rotation.x = Math.PI / 2;
+      segment.rotation.z = Math.PI / 2;
+      segment.position.y = -1;
+      segment.position.z = -i * segmentLength; // Initial position, spaced out
+      
+      scene.add(segment);
+      segmentPool.push(segment);
+      
+      // Add markers to each segment
+      addMarkersToSegment(segment, i, segmentLength);
+    }
+    
+    // Function to add markers to a segment
+    function addMarkersToSegment(segment, segmentIndex, segmentLength) {
+      const markers = [];
+      const markerCount = 5; // Number of markers per segment
+      
+      for (let j = 0; j < markerCount; j++) {
+        const markerGeometry = new THREE.BoxGeometry(0.5, 0.2, 0.5);
+        // Use different colors for different segment types
+        const markerColor = segmentIndex % 2 === 0 ? 0x888888 : 0x777777;
+        const markerMaterial = new THREE.MeshStandardMaterial({ color: markerColor });
+        
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+        
+        // Position marker within the segment
+        const zPos = -segmentIndex * segmentLength - j * (segmentLength / markerCount);
+        marker.position.set(0, -0.9, zPos);
+        
+        scene.add(marker);
+        markers.push(marker);
+        
+        // Store markers with their parent segment for recycling
+        if (!segment.userData.markers) {
+          segment.userData.markers = [];
+        }
+        segment.userData.markers.push(marker);
+      }
+      
+      // Add some random obstacles to some segments
+      if (segmentIndex > 0 && Math.random() > 0.5) {
+        const obstacleGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xdd3333 });
+        const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+        
+        // Random position within segment
+        const randomX = (Math.random() * 6) - 3; // Between -3 and 3
+        const zPos = -segmentIndex * segmentLength - segmentLength * 0.5;
+        obstacle.position.set(randomX, -0.6, zPos);
+        
+        scene.add(obstacle);
+        
+        if (!segment.userData.obstacles) {
+          segment.userData.obstacles = [];
+        }
+        segment.userData.obstacles.push(obstacle);
+      }
+    }
+    
+    // Function to recycle a segment when it goes off-screen
+    function recycleSegment(segment, newPosition) {
+      // Move the segment
+      segment.position.z = newPosition;
+      
+      // Move all associated markers
+      if (segment.userData.markers) {
+        const markerCount = segment.userData.markers.length;
+        segment.userData.markers.forEach((marker, idx) => {
+          marker.position.z = newPosition - idx * (segmentLength / markerCount);
+        });
+      }
+      
+      // Move any obstacles
+      if (segment.userData.obstacles) {
+        segment.userData.obstacles.forEach(obstacle => {
+          // Keep X position, update Z relative to segment
+          const offsetZ = obstacle.position.z - segment.position.z;
+          obstacle.position.z = newPosition + offsetZ;
+        });
+      }
     }
 
-    // Create our hero (the cube) - NOT spinning
+    // Create our hero (the cube)
     const geometry = new THREE.BoxGeometry();
     const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
     const hero = new THREE.Mesh(geometry, material);
     scene.add(hero);
 
-    // Add lighting - EXACTLY as your code
+    // Add lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
     
@@ -107,7 +178,7 @@ const App = () => {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
-    // Handle Window Resize - EXACTLY as your code
+    // Handle Window Resize
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
@@ -115,27 +186,82 @@ const App = () => {
     };
     window.addEventListener('resize', handleResize);
 
+    // Game state
+    let scrollPosition = 0;
+    const scrollThreshold = segmentLength;
+
     // Animation Loop
     const animate = () => {
       requestAnimationFrame(animate);
       
-      // NO cube rotation - removed as requested
-
-      // Move the world in response to key presses (hero stays centered)
+      // Move the world
       if (keys.left) {
-        // Move world right (giving illusion of hero moving left)
-        plane.position.z += moveSpeed;
-        markers.forEach(marker => {
-          marker.position.z += moveSpeed;
+        // Move world backward (giving illusion of hero moving left)
+        segmentPool.forEach(segment => {
+          segment.position.z -= moveSpeed;
+          
+          // Move associated markers
+          if (segment.userData.markers) {
+            segment.userData.markers.forEach(marker => {
+              marker.position.z -= moveSpeed;
+            });
+          }
+          
+          // Move associated obstacles
+          if (segment.userData.obstacles) {
+            segment.userData.obstacles.forEach(obstacle => {
+              obstacle.position.z -= moveSpeed;
+            });
+          }
         });
+        
+        scrollPosition += moveSpeed;
       }
+      
       if (keys.right) {
-        // Move world left (giving illusion of hero moving right)
-        plane.position.z -= moveSpeed;
-        markers.forEach(marker => {
-          marker.position.z -= moveSpeed;
+        // Move world forward (giving illusion of hero moving right)
+        segmentPool.forEach(segment => {
+          segment.position.z += moveSpeed;
+          
+          // Move associated markers
+          if (segment.userData.markers) {
+            segment.userData.markers.forEach(marker => {
+              marker.position.z += moveSpeed;
+            });
+          }
+          
+          // Move associated obstacles
+          if (segment.userData.obstacles) {
+            segment.userData.obstacles.forEach(obstacle => {
+              obstacle.position.z += moveSpeed;
+            });
+          }
         });
+        
+        scrollPosition -= moveSpeed;
       }
+      
+      // Check if we need to recycle segments
+      segmentPool.forEach(segment => {
+        // If a segment has moved far enough past the camera, recycle it
+        if (segment.position.z > scrollThreshold) {
+          // Find the current farthest segment in the negative z direction
+          const farthestSegment = segmentPool.reduce((prev, curr) => 
+            curr.position.z < prev.position.z ? curr : prev, segment);
+          
+          // Place this segment behind the farthest one
+          recycleSegment(segment, farthestSegment.position.z - segmentLength);
+        }
+        // If a segment has moved far enough in the negative direction, recycle it
+        else if (segment.position.z < -scrollThreshold * visibleSegments) {
+          // Find the current farthest segment in the positive z direction
+          const farthestSegment = segmentPool.reduce((prev, curr) => 
+            curr.position.z > prev.position.z ? curr : prev, segment);
+          
+          // Place this segment ahead of the farthest one
+          recycleSegment(segment, farthestSegment.position.z + segmentLength);
+        }
+      });
 
       // Render Scene
       renderer.render(scene, camera);
