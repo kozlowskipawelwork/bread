@@ -96,16 +96,19 @@ const App = () => {
       
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x111111);
-      
-      const camera = new THREE.PerspectiveCamera(
-        100,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        1000
-      );
-      camera.position.set(9, 6, 3);
-      
-      camera.lookAt(0, 2, 0);
+     // Create a perspective camera with a suitable FOV:
+const camera = new THREE.PerspectiveCamera(
+  90, // Field of view
+  window.innerWidth / window.innerHeight, // Aspect ratio
+  0.1, // Near clipping
+  1000 // Far clipping
+);
+
+// For a side-scrolling feel, place the camera “to the side” of your scene.
+// Example: let x be side-to-side, y is up, and z is “into” or “out of” the screen.
+camera.position.set(10, 4, 0); // x=10 => from the side, y=2 => slightly above, z=0 => no depth offset
+camera.lookAt(0, 1, 0);        // Aim at your character’s general height
+
       
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
