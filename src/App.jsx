@@ -77,13 +77,13 @@ const App = () => {
       scene.background = new THREE.Color(0x111111);
       
       const camera = new THREE.PerspectiveCamera(
-        60,
+        50,
         window.innerWidth / window.innerHeight,
         0.1,
         1000
       );
-      camera.position.set(10, 5, 3);
-      camera.lookAt(0, 0, 0);
+      camera.position.set(50, 10, 14);
+      camera.lookAt(10, 0, 10);
       
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -112,7 +112,7 @@ const App = () => {
       physicsWorld.addBody(groundBody);
       
       const gameWorld = new World(scene, physicsWorld);
-      const cannonDebugger = CannonDebugger(scene, physicsWorld);
+      //const cannonDebugger = CannonDebugger(scene, physicsWorld);
       const character = new CharacterController(scene, physicsWorld, playerMaterial);
       
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -141,7 +141,7 @@ const App = () => {
         const delta = Math.min(clock.getDelta(), 0.1);
         
         physicsWorld.step(1/60, delta, 3);
-        cannonDebugger.update();
+        //cannonDebugger.update();
         
         // Only update if character is ready
         if (character && character.physicsBody) {

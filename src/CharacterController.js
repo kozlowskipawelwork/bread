@@ -73,10 +73,9 @@ export class CharacterController {
       mass: 5,
       position: new CANNON.Vec3(0, 1, 0),
       shape: characterShape,
-      material: this.playerMaterial || undefined,
+      material: this.playerMaterial || undefined,  // Use provided material if available
       linearDamping: 0.6,
-      angularDamping: 0.9,
-      collisionResponse: false  // Add this to make it a "ghost" body
+      angularDamping: 0.9
     });
     
     // Add userData for collision identification
@@ -98,6 +97,7 @@ export class CharacterController {
     
     this.physicsWorld.addBody(this.physicsBody);
   }
+  
   
   setupAnimations(animations) {
     if (!this.model) return;
