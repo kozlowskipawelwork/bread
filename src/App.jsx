@@ -1,11 +1,14 @@
+// App.jsx
 'use client'
+import React, { useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { useEffect } from 'react';
 import { createResizeHandler, setupResizeListener } from './utils/resizeHandler';
 import { World } from './World';
 import * as CANNON from 'cannon-es';
 import CannonDebugger from 'cannon-es-debugger';
 import { CharacterController } from './CharacterController';
+import HeroHealth from './HeroHealth';
+import PickupBreadPrompt from './PickupBreadPrompt';
 
 export const COLLISION_GROUPS = {
   PLAYER: 1,
@@ -15,6 +18,9 @@ export const COLLISION_GROUPS = {
 };
 
 const App = () => {
+  // State to track when to show the pickup prompt
+  const [pickupVisible, setPickupVisible] = useState(false);
+
   useEffect(() => {
     const init = async () => {
       const physicsWorld = new CANNON.World({
@@ -49,29 +55,44 @@ const App = () => {
       
       physicsWorld.addContactMaterial(playerObstacleContactMaterial);
       
-      // Listen for collision events (keeping this for compatibility)
+      // Listen for collision events
       physicsWorld.addEventListener('beginContact', (event) => {
-        console.log('Contact event triggered!', event);
-        
         const bodyA = event.bodyA;
         const bodyB = event.bodyB;
-        
-        console.log('BodyA userData:', bodyA.userData);
-        console.log('BodyB userData:', bodyB.userData);
         
         if (
           (bodyA.userData?.type === 'player' && bodyB.userData?.type === 'obstacle') ||
           (bodyA.userData?.type === 'obstacle' && bodyB.userData?.type === 'player')
         ) {
-          const player = bodyA.userData?.type === 'player' ? bodyA : bodyB;
-          const obstacle = bodyA.userData?.type === 'obstacle' ? bodyA : bodyB;
-          
           console.log('CANNON COLLISION DETECTED: Player hit obstacle!');
-          console.log('Player position:', player.position);
-          console.log('Obstacle position:', obstacle.position);
-          console.log('Obstacle:', obstacle.userData);
+          // Show the pickup prompt when collision occurs
+          setPickupVisible(true);
         }
       });
+
+      physicsWorld.addEventListener('endContact', (event) => {
+        const { bodyA, bodyB } = event;
+      
+        // Player <-> obstacle end of contact
+        if (
+          (bodyA.userData?.type === 'player' && bodyB.userData?.type === 'obstacle') ||
+          (bodyA.userData?.type === 'obstacle' && bodyB.userData?.type === 'player')
+        ) {
+          setPickupVisible(false);
+      
+          // Find which one is the character's body, then update the CharacterController
+          // If you have a reference to your CharacterController instance as, say, `character`,
+          // do something like this:
+          if (bodyA.userData?.name === 'breadWarrior') {
+            // That means bodyA belongs to the player
+            character.isCollidingWithObstacle = false;
+          } else if (bodyB.userData?.name === 'breadWarrior') {
+            // That means bodyB belongs to the player
+            character.isCollidingWithObstacle = false;
+          }
+        }
+      });
+      
       
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x111111);
@@ -83,12 +104,13 @@ const App = () => {
         1000
       );
       camera.position.set(50, 10, 14);
-      camera.lookAt(10, 0, 10);
+      camera.lookAt(3, 1, 10);
       
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(window.devicePixelRatio);
       
+      // Remove any existing canvas elements and append the new canvas
       document.querySelectorAll('canvas').forEach(canvas => canvas.remove());
       document.body.appendChild(renderer.domElement);
       
@@ -112,7 +134,7 @@ const App = () => {
       physicsWorld.addBody(groundBody);
       
       const gameWorld = new World(scene, physicsWorld);
-      //const cannonDebugger = CannonDebugger(scene, physicsWorld);
+      const cannonDebugger = CannonDebugger(scene, physicsWorld);
       const character = new CharacterController(scene, physicsWorld, playerMaterial);
       
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -141,7 +163,7 @@ const App = () => {
         const delta = Math.min(clock.getDelta(), 0.1);
         
         physicsWorld.step(1/60, delta, 3);
-        //cannonDebugger.update();
+        cannonDebugger.update();
         
         // Only update if character is ready
         if (character && character.physicsBody) {
@@ -177,9 +199,28 @@ const App = () => {
     };
     
     init().catch(console.error);
+    
+    // Global keydown listener for picking up bread
+    const handlePickup = (event) => {
+      if (event.key === 'e' || event.key === 'E') {
+        console.log('Bread pickup triggered');
+        setPickupVisible(false);
+        // Additional logic to actually pick up the bread can be added here.
+      }
+    };
+    window.addEventListener('keydown', handlePickup);
+    
+    return () => {
+      window.removeEventListener('keydown', handlePickup);
+    };
   }, []);
   
-  return null;
+  return (
+    <>
+      {pickupVisible && <PickupBreadPrompt />}
+      <HeroHealth />
+    </>
+  );
 };
 
 export default App;
