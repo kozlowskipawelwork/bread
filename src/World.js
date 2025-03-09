@@ -3,6 +3,7 @@ import * as CANNON from 'cannon-es';
 import { Ground } from './Ground';
 import { Markers } from './Markers';
 import { Obstacles } from './Obstacles';
+import { Trees } from './Trees';
 
 export class World {
   constructor(scene, physicsWorld) {
@@ -18,6 +19,11 @@ export class World {
     this.ground = new Ground(this.worldGroup, this.segmentLength);
     this.markers = new Markers(this.worldGroup, this.physicsWorld, this.segmentLength);
     this.obstacles = new Obstacles(this.worldGroup, this.physicsWorld, this.segmentLength);
+    this.trees = new Trees(this.worldGroup, this.segmentLength);
+    
+    // Configure trees x-range
+    this.trees.setXRange(-8, 8);
+    
     this.initializeWorld();
   }
 
@@ -31,6 +37,7 @@ export class World {
       this.ground.createSegment(zPosition);
       this.markers.createMarkers(zPosition, this.worldGroup.position.z);
       this.obstacles.createObstacle(zPosition, this.worldGroup.position.z);
+      this.trees.createTrees(zPosition);
     }
   }
 
@@ -66,12 +73,14 @@ export class World {
       this.ground.createSegment(newZ);
       this.markers.createMarkers(newZ, this.worldGroup.position.z);
       this.obstacles.createObstacle(newZ, this.worldGroup.position.z);
+      this.trees.createTrees(newZ);
     }
     if (visibleRangeEnd > maxZ) {
       const newZ = maxZ + this.segmentLength;
       this.ground.createSegment(newZ);
       this.markers.createMarkers(newZ, this.worldGroup.position.z);
       this.obstacles.createObstacle(newZ, this.worldGroup.position.z);
+      this.trees.createTrees(newZ);
     }
     const cleanupSegments = [];
     this.ground.segments.forEach((segment) => {
@@ -98,6 +107,10 @@ export class World {
       cleanupMin,
       cleanupMax,
       this.worldGroup.position.z
+    );
+    this.trees.cleanupTrees(
+      cleanupMin,
+      cleanupMax
     );
   }
 
@@ -158,6 +171,13 @@ export class World {
       });
     }
     this.markers.markers = [];
+    
+    // Clean up trees
+    this.trees.trees.forEach((tree) => {
+      this.worldGroup.remove(tree);
+    });
+    this.trees.trees = [];
+    
     this.worldGroup.position.set(0, 0, 0);
     this.moveSpeed = 0.1;
     this.initializeWorld();
