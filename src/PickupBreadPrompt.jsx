@@ -1,5 +1,3 @@
-// PickupBreadPrompt.jsx
-'use client'
 import React from 'react';
 
 const PickupBreadPrompt = () => {
@@ -7,7 +5,7 @@ const PickupBreadPrompt = () => {
     <p
       style={{
         position: 'fixed',
-        bottom: '60px', // Positioned above HeroHealth (which is at bottom: 20px)
+        bottom: '60px', 
         right: '20px',
         margin: 0,
         padding: '10px 15px',

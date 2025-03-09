@@ -1,4 +1,3 @@
-// App.jsx
 'use client'
 import React, { useEffect, useState } from 'react';
 import * as THREE from 'three';
@@ -18,7 +17,6 @@ export const COLLISION_GROUPS = {
 };
 
 const App = () => {
-  // State to track when to show the pickup prompt
   const [pickupVisible, setPickupVisible] = useState(false);
 
   useEffect(() => {
@@ -30,12 +28,10 @@ const App = () => {
       physicsWorld.defaultContactMaterial.friction = 0.1;
       physicsWorld.defaultContactMaterial.restitution = 0.3;
       
-      // Improved physics settings
       physicsWorld.broadphase = new CANNON.SAPBroadphase(physicsWorld);
       physicsWorld.solver.iterations = 10;
       physicsWorld.allowSleep = false;
       
-      // Set up materials for better collision response
       const playerMaterial = new CANNON.Material('playerMaterial');
       const obstacleMaterial = new CANNON.Material('obstacleMaterial');
       
@@ -44,18 +40,17 @@ const App = () => {
         obstacleMaterial,
         {
           friction: 0.0,
-          restitution: 0.0,     // No bouncing
+          restitution: 0.0,
           contactEquationStiffness: 1e8,
           contactEquationRelaxation: 3,
-          frictionEquationStiffness: 0, // No friction response
-          contactEquationRegularizationTime: 0.3, // Reduce solving iterations
-          collisionResponse: false  // Most important - no physical response
+          frictionEquationStiffness: 0,
+          contactEquationRegularizationTime: 0.3,
+          collisionResponse: false
         }
       );
       
       physicsWorld.addContactMaterial(playerObstacleContactMaterial);
       
-      // Listen for collision events
       physicsWorld.addEventListener('beginContact', (event) => {
         const bodyA = event.bodyA;
         const bodyB = event.bodyB;
@@ -65,7 +60,6 @@ const App = () => {
           (bodyA.userData?.type === 'obstacle' && bodyB.userData?.type === 'player')
         ) {
           console.log('CANNON COLLISION DETECTED: Player hit obstacle!');
-          // Show the pickup prompt when collision occurs
           setPickupVisible(true);
         }
       });
@@ -73,48 +67,37 @@ const App = () => {
       physicsWorld.addEventListener('endContact', (event) => {
         const { bodyA, bodyB } = event;
       
-        // Player <-> obstacle end of contact
         if (
           (bodyA.userData?.type === 'player' && bodyB.userData?.type === 'obstacle') ||
           (bodyA.userData?.type === 'obstacle' && bodyB.userData?.type === 'player')
         ) {
           setPickupVisible(false);
       
-          // Find which one is the character's body, then update the CharacterController
-          // If you have a reference to your CharacterController instance as, say, `character`,
-          // do something like this:
           if (bodyA.userData?.name === 'breadWarrior') {
-            // That means bodyA belongs to the player
             character.isCollidingWithObstacle = false;
           } else if (bodyB.userData?.name === 'breadWarrior') {
-            // That means bodyB belongs to the player
             character.isCollidingWithObstacle = false;
           }
         }
       });
       
-      
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x111111);
-     // Create a perspective camera with a suitable FOV:
-const camera = new THREE.PerspectiveCamera(
-  90, // Field of view
-  window.innerWidth / window.innerHeight, // Aspect ratio
-  0.1, // Near clipping
-  1000 // Far clipping
-);
 
-// For a side-scrolling feel, place the camera “to the side” of your scene.
-// Example: let x be side-to-side, y is up, and z is “into” or “out of” the screen.
-camera.position.set(10, 4, 0); // x=10 => from the side, y=2 => slightly above, z=0 => no depth offset
-camera.lookAt(0, 1, 0);        // Aim at your character’s general height
+      const camera = new THREE.PerspectiveCamera(
+        90,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
 
+      camera.position.set(10, 4, 0);
+      camera.lookAt(0, 1, 0);
       
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(window.devicePixelRatio);
       
-      // Remove any existing canvas elements and append the new canvas
       document.querySelectorAll('canvas').forEach(canvas => canvas.remove());
       document.body.appendChild(renderer.domElement);
       
@@ -138,7 +121,7 @@ camera.lookAt(0, 1, 0);        // Aim at your character’s general height
       physicsWorld.addBody(groundBody);
       
       const gameWorld = new World(scene, physicsWorld);
-      //const cannonDebugger = CannonDebugger(scene, physicsWorld);
+        //const cannonDebugger = CannonDebugger(scene, physicsWorld);
       const character = new CharacterController(scene, physicsWorld, playerMaterial);
       
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -148,7 +131,6 @@ camera.lookAt(0, 1, 0);        // Aim at your character’s general height
       directionalLight.position.set(5, 5, 5);
       scene.add(directionalLight);
       
-      // Create debug helper function in window
       window.debugCollision = () => {
         console.log('Debug info:');
         console.log('Character position:', character.physicsBody?.position);
@@ -156,8 +138,6 @@ camera.lookAt(0, 1, 0);        // Aim at your character’s general height
           position: o.position,
           adjustedZ: o.position.z - gameWorld.worldGroup.position.z
         })));
-        
-        // Force collision check
         gameWorld.checkCollisions(character);
       };
       
@@ -167,9 +147,7 @@ camera.lookAt(0, 1, 0);        // Aim at your character’s general height
         const delta = Math.min(clock.getDelta(), 0.1);
         
         physicsWorld.step(1/60, delta, 3);
-        //cannonDebugger.update();
         
-        // Only update if character is ready
         if (character && character.physicsBody) {
           character.update(delta);
           
@@ -181,11 +159,9 @@ camera.lookAt(0, 1, 0);        // Aim at your character’s general height
           if (gameWorld) {
             gameWorld.moveSpeed = moveSpeed;
             
-            // Pass character to world update for collision detection
             if (moveDirection) {
               gameWorld.update(moveDirection, character);
             } else {
-              // Even if not moving, still check collisions
               gameWorld.update(null, character);
             }
           }
@@ -204,12 +180,10 @@ camera.lookAt(0, 1, 0);        // Aim at your character’s general height
     
     init().catch(console.error);
     
-    // Global keydown listener for picking up bread
     const handlePickup = (event) => {
       if (event.key === 'e' || event.key === 'E') {
         console.log('Bread pickup triggered');
         setPickupVisible(false);
-        // Additional logic to actually pick up the bread can be added here.
       }
     };
     window.addEventListener('keydown', handlePickup);

@@ -1,4 +1,3 @@
-// Ground.js
 import * as THREE from 'three';
 
 export class Ground {

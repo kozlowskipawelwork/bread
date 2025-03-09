@@ -1,4 +1,3 @@
-// Markers.js
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
@@ -11,7 +10,6 @@ export class Markers {
   }
 
   createMarkers(zPosition, worldOffset = 0) {
-    // Create 5 markers per segment
     for (let j = 0; j < 5; j++) {
       const markerGeometry = new THREE.BoxGeometry(0.5, 0.2, 0.5);
       const markerMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });

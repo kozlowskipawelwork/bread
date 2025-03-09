@@ -1,5 +1,3 @@
-// HeroHealth.jsx
-'use client'
 import React from 'react';
 import useHeroStore from './heroStore';
 

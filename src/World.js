@@ -20,10 +20,10 @@ export class World {
     this.markers = new Markers(this.worldGroup, this.physicsWorld, this.segmentLength);
     this.obstacles = new Obstacles(this.worldGroup, this.physicsWorld, this.segmentLength);
     this.trees = new Trees(this.worldGroup, this.segmentLength);
-    
+
     // Configure trees x-range
     this.trees.setXRange(-8, 8);
-    
+
     this.initializeWorld();
   }
 
@@ -86,9 +86,9 @@ export class World {
     this.ground.segments.forEach((segment) => {
       if (
         segment.position.z <
-          visibleRangeStart - this.segmentLength * 2 ||
+        visibleRangeStart - this.segmentLength * 2 ||
         segment.position.z >
-          visibleRangeEnd + this.segmentLength * 2
+        visibleRangeEnd + this.segmentLength * 2
       ) {
         cleanupSegments.push(segment);
       }
@@ -171,13 +171,12 @@ export class World {
       });
     }
     this.markers.markers = [];
-    
-    // Clean up trees
+
     this.trees.trees.forEach((tree) => {
       this.worldGroup.remove(tree);
     });
     this.trees.trees = [];
-    
+
     this.worldGroup.position.set(0, 0, 0);
     this.moveSpeed = 0.1;
     this.initializeWorld();

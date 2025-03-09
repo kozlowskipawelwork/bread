@@ -1,4 +1,3 @@
-// heroStore.js
 import { create } from 'zustand';
 
 const useHeroStore = create((set) => ({

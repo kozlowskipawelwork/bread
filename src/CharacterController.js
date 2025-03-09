@@ -222,7 +222,7 @@ export class CharacterController {
 
   onPickupFinished() {
     useHeroStore.getState().addHealth(10);
-    
+
     if (this.moveState.left || this.moveState.right) {
       if (this.moveState.shift && this.animations.run) {
         this.setAction(this.animations.run);
